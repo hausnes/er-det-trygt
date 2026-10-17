@@ -2,7 +2,6 @@ fastapi==0.143.3
 httpx==0.28.1
 numpy==2.5.4
 pyproj==3.8.0
-pytest==9.1.1
 scikit-image==0.26.0
 scipy==1.18.1
 tifffile==2026.10.15

@@ -1,0 +1,14 @@
+# Bruk denne på NAS-en (Synology Container Manager → Prosjekt, eller Ugreen Docker → Compose).
+services:
+  er-det-trygt:
+    image: ghcr.io/hausnes/er-det-trygt:latest
+    container_name: er-det-trygt
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Kor mange rutesøk kvar brukar (IP-adresse) kan gjere
+      RATE_LIMIT_PER_MINUTE: 10
+      RATE_LIMIT_PER_HOUR: 60
+      # Kor mange ruteberekningar som kan køyre samtidig (aukar minne- og CPU-bruken)
+      MAX_CONCURRENT_ROUTES: 3
