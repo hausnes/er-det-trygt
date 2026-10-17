@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="nn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f4e3d" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <title>Er det trygt?</title>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <section id="panel">
+      <h1>Er det trygt?</h1>
+
+      <div class="points">
+        <button id="pick-start" class="pick" data-target="start">
+          <span class="dot start"></span><span class="label">Vel start</span>
+        </button>
+        <button id="pick-end" class="pick" data-target="end">
+          <span class="dot end"></span><span class="label">Vel mål</span>
+        </button>
+      </div>
+      <button id="use-gps" class="secondary">📍 Bruk posisjonen min som start</button>
+
+      <div class="actions">
+        <button id="find-route" class="primary" disabled>Finn rute</button>
+        <button id="reset" class="secondary">Nullstill</button>
+      </div>
+
+      <p id="status" role="status"></p>
+      <div id="summary" hidden></div>
+
+      <p class="disclaimer">
+        Forslaget byggjer berre på terrengform frå høgdedata. Det tek ikkje omsyn til snø, is,
+        vatn, vêr eller lausmassar. Bruk eige skjønn – snu om du er i tvil.
+      </p>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

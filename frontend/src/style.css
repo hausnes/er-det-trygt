@@ -1,0 +1,194 @@
+:root {
+  --green: #1f4e3d;
+  --start: #1f6feb;
+  --end: #d62828;
+  --text: #1b1f23;
+  --muted: #5b6470;
+  --bg: #ffffff;
+  --border: #d8dde3;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+#panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 340px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 0.18);
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  color: var(--green);
+}
+
+button {
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 10px 12px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.points,
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pick.active {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+  background: #eef5f1;
+}
+
+#use-gps {
+  width: 100%;
+  margin: 8px 0 12px;
+}
+
+.primary {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  font-weight: 600;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+}
+.dot.start,
+.marker.start {
+  background: var(--start);
+}
+.dot.end,
+.marker.end {
+  background: var(--end);
+}
+
+.marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  cursor: grab;
+}
+
+#status {
+  min-height: 1.2em;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+#status.error {
+  color: var(--end);
+}
+
+#summary dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin: 8px 0;
+}
+#summary dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+#summary dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.slopes {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+.slopes li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.slopes .num {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.swatch {
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.note,
+.disclaimer {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.disclaimer {
+  margin-bottom: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* Mobil: panelet ligg nedst som eit ark */
+@media (max-width: 700px) {
+  #panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 55%;
+    border-radius: 16px 16px 0 0;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  h1 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  .maplibregl-ctrl-bottom-left {
+    display: none;
+  }
+}
