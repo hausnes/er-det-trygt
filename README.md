@@ -47,9 +47,9 @@ Alt køyrer i éin container: backend-en serverer òg den ferdigbygde frontend-e
 Imaget fungerer på både Intel/AMD- og ARM-prosessorar.
 
 Ved kvar push til `main` køyrer GitHub Actions testane og publiserer imaget til
-`ghcr.io/hausnes/er-det-trygt:latest`. Første gong må pakken gjerast offentleg
-(GitHub → profil → Packages → er-det-trygt → Package settings → Change visibility),
-elles må NAS-en logge inn på ghcr.io.
+`ghcr.io/hausnes/er-det-trygt:latest`. Pakken er offentleg (som repoet), så NAS-en
+kan hente imaget utan å logge inn. Sjå pakken på
+[github.com/hausnes/er-det-trygt/pkgs/container/er-det-trygt](https://github.com/hausnes/er-det-trygt/pkgs/container/er-det-trygt).
 
 På NAS-en:
 
