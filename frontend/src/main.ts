@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "./style.css";
 import { fetchRoute, type RouteResponse, type SlopeClass } from "./api";
+import { buildRouteLine, locateOnRoute, type LonLat, type RouteLine } from "./tracking";
 
 type Target = "start" | "end";
 
@@ -28,6 +29,8 @@ const findRouteBtn = $<HTMLButtonElement>("find-route");
 const resetBtn = $<HTMLButtonElement>("reset");
 const statusEl = $<HTMLParagraphElement>("status");
 const summaryEl = $<HTMLDivElement>("summary");
+const followBtn = $<HTMLButtonElement>("follow");
+const followStatusEl = $<HTMLDivElement>("follow-status");
 
 // MapLibre finn elles workeren relativt til si eiga fil, men Vite flyttar MapLibre ved
 // pakking utan å ta med workeren. Utan worker blir GeoJSON (ruta) aldri teikna.
@@ -52,10 +55,12 @@ const map = new maplibregl.Map({
   },
 });
 map.addControl(new maplibregl.NavigationControl(), "top-right");
-map.addControl(
-  new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true }),
-  "top-right",
-);
+// GPS-prikken på kartet er òg den einaste kjelda til posisjon når ein følgjer ruta
+const geolocate = new maplibregl.GeolocateControl({
+  positionOptions: { enableHighAccuracy: true },
+  trackUserLocation: true,
+});
+map.addControl(geolocate, "top-right");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
 map.on("load", () => {
@@ -84,6 +89,16 @@ map.on("load", () => {
         "#555555",
       ],
     },
+  });
+
+  // Stipla line frå posisjonen tilbake til ruta når ein har gått seg bort
+  map.addSource("to-route", { type: "geojson", data: emptyRoute() });
+  map.addLayer({
+    id: "to-route",
+    type: "line",
+    source: "to-route",
+    layout: { "line-cap": "round" },
+    paint: { "line-color": "#1f6feb", "line-width": 3, "line-dasharray": [1, 2] },
   });
 });
 
@@ -165,8 +180,10 @@ findRouteBtn.addEventListener("click", async () => {
   try {
     const route = await fetchRoute({ lat: start.lat, lon: start.lng }, { lat: end.lat, lon: end.lng });
     (map.getSource("route") as GeoJSONSource).setData(route.segments);
+    routeLine = buildRouteLine(route.segments.features.map((f) => f.geometry.coordinates as LonLat[]));
     fitToRoute(route);
     showSummary(route);
+    followBtn.hidden = false;
     setStatus("");
   } catch (e) {
     setStatus((e as Error).message, true);
@@ -210,8 +227,103 @@ function showSummary(route: RouteResponse) {
 }
 
 function clearRoute() {
+  stopFollowing();
+  routeLine = null;
+  followBtn.hidden = true;
   (map.getSource("route") as GeoJSONSource | undefined)?.setData(emptyRoute());
   summaryEl.hidden = true;
+}
+
+// --- Følg ruta ---
+
+/** Så langt frå ruta (meter) kan ein vere og framleis rekne seg som «på ruta». */
+const ON_ROUTE_M = 30;
+const ARRIVED_M = 25;
+const POOR_ACCURACY_M = 50;
+
+let routeLine: RouteLine | null = null;
+let following = false;
+let offRoute = false;
+let gpsLocked = false; // om GPS-knappen er aktiv og kartet følgjer posisjonen
+
+geolocate.on("trackuserlocationstart", () => (gpsLocked = true));
+geolocate.on("trackuserlocationend", () => (gpsLocked = false));
+geolocate.on("geolocate", (e) => updateFollow(e.coords));
+geolocate.on("error", () => {
+  if (following) showFollowStatus("Fekk ikkje tak i GPS-posisjonen. Sjekk at stadtenester er slått på.", "off");
+});
+
+followBtn.addEventListener("click", () => (following ? stopFollowing() : startFollowing()));
+
+function startFollowing() {
+  following = true;
+  offRoute = false;
+  followBtn.textContent = "⏹ Stopp å følgje";
+  followBtn.classList.replace("primary", "secondary");
+  showFollowStatus("Ventar på GPS-posisjon …", "waiting");
+  // trigger() slår av sporinga om ho allereie er aktiv, så berre slå ho på ved behov
+  if (!gpsLocked) geolocate.trigger();
+}
+
+function stopFollowing() {
+  following = false;
+  followBtn.textContent = "▶ Følg ruta";
+  followBtn.classList.replace("secondary", "primary");
+  followStatusEl.hidden = true;
+  setToRouteLine(null);
+}
+
+function updateFollow(coords: GeolocationCoordinates) {
+  if (!following || !routeLine) return;
+  const here: LonLat = [coords.longitude, coords.latitude];
+  const accuracy = coords.accuracy;
+  const { distanceFromRoute, nearest, remaining } = locateOnRoute(routeLine, here);
+
+  // Med dårleg GPS kan vi ikkje skilje små avvik frå støy. Hysteresen hindrar at
+  // åtvaringa blinkar av og på når ein går like ved grensa.
+  const tolerance = Math.max(ON_ROUTE_M, accuracy);
+  const wasOffRoute = offRoute;
+  offRoute = offRoute ? distanceFromRoute > tolerance * 0.7 : distanceFromRoute > tolerance;
+  if (offRoute && !wasOffRoute) navigator.vibrate?.([200, 100, 200]);
+  setToRouteLine(offRoute ? [here, nearest] : null);
+
+  const remainingText = `${formatDistance(Math.round(remaining))} att til målet.`;
+  if (offRoute) {
+    // Avstanden er større enn feilmarginen, så her er vi sikre på at ein er utanfor
+    showFollowStatus(
+      `<strong>⚠️ Du er ${Math.round(distanceFromRoute)} m frå ruta</strong>
+       <small>Den stipla linja viser næraste punkt på ruta i luftline. Det er ikkje nødvendigvis ein trygg veg dit, så gå heller tilbake same veg som du kom.</small>`,
+      "off",
+    );
+  } else if (accuracy > POOR_ACCURACY_M) {
+    // Ikkje stadfest at ein er på ruta når GPS-feilen er større enn avvika vi vil oppdage
+    showFollowStatus(
+      `<strong>❔ Usikker posisjon</strong>
+       <small>GPS-signalet er for unøyaktig (±${Math.round(accuracy)} m) til å stadfeste at du er på ruta. ${remainingText}</small>`,
+      "waiting",
+    );
+  } else if (remaining < ARRIVED_M) {
+    showFollowStatus(`<strong>🎉 Du er framme</strong>`, "on");
+  } else {
+    showFollowStatus(
+      `<strong>✅ Du følgjer ruta</strong>
+       <small>${remainingText}</small>`,
+      "on",
+    );
+  }
+}
+
+function showFollowStatus(html: string, state: "on" | "off" | "waiting") {
+  followStatusEl.innerHTML = html;
+  followStatusEl.className = state;
+  followStatusEl.hidden = false;
+}
+
+function setToRouteLine(line: [LonLat, LonLat] | null) {
+  const data: GeoJSON.FeatureCollection = line
+    ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line } }] }
+    : emptyRoute();
+  (map.getSource("to-route") as GeoJSONSource | undefined)?.setData(data);
 }
 
 function emptyRoute(): GeoJSON.FeatureCollection {

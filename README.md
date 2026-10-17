@@ -14,8 +14,9 @@ Tjenesten treng GPS-tilgang frå mobilen din, og deretter markerer du kvar du sk
 3. Hellinga blir rekna ut for kvar celle. Terreng over 45° (og cellene rett ved sida) blir rekna som ufarbart, og bratt terreng kostar meir enn slakt.
 4. Innsjøar, tjørner og breie elvar frå Kartverket sitt N50-kart blir rekna som ufarbare, slik at ruta går rundt dei. Ruta kan likevel krysse bekkar og smale elvar, sidan dei berre er teikna som liner i N50.
 5. Ruta med lågast samla kostnad blir funnen og vist på kartet, farga etter kor bratt det er.
+6. Med «Følg ruta» brukar appen GPS-en til å stadfeste at du er på ruta (innanfor 30 m), og kor langt det er att. Går du utanfor, får du ei åtvaring (og vibrasjon på Android). Er GPS-signalet for unøyaktig, seier appen ifrå i staden for å stadfeste.
 
-Avgrensingar: Høgdemodellen kjenner ikkje til snø, is, bre eller lausmassar. Vatn blir alltid unngått, også om vinteren når det kan vere islagt. Maks avstand mellom punkta er 15 km. Lange ruter blir rekna ut med grovare rutenett (opptil ~15 m), og då kan små stup forsvinne.
+Avgrensingar: Høgdemodellen kjenner ikkje til snø, is, bre eller lausmassar. Vatn blir alltid unngått, også om vinteren når det kan vere islagt. «Følg ruta» fungerer berre når skjermen er på og appen er open, sidan nettlesarar ikkje får GPS-posisjon i bakgrunnen. Maks avstand mellom punkta er 15 km. Lange ruter blir rekna ut med grovare rutenett (opptil ~15 m), og då kan små stup forsvinne.
 
 ## Utvikling
 
@@ -35,6 +36,7 @@ python3 -m venv .venv
 cd frontend
 npm install
 npm run dev
+npm test
 ```
 
 GPS-posisjon i nettlesaren krev HTTPS (eller `localhost`). For å teste på mobil kan du t.d. bruke ein tunnel som `cloudflared` eller `ngrok`.

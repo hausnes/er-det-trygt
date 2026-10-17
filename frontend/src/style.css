@@ -14,6 +14,11 @@
   box-sizing: border-box;
 }
 
+/* `hidden` skal alltid skjule, også når elementet har ein eigen display-regel */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -160,6 +165,38 @@ button:disabled {
   width: 16px;
   height: 6px;
   border-radius: 3px;
+}
+
+#follow {
+  width: 100%;
+  margin-top: 12px;
+}
+
+#follow-status {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#follow-status strong {
+  font-size: 1.05rem;
+}
+#follow-status small {
+  font-size: 0.85rem;
+}
+#follow-status.on {
+  background: #e8f5ec;
+  color: #14532d;
+}
+#follow-status.off {
+  background: #fdecea;
+  color: #8b1c13;
+}
+#follow-status.waiting {
+  background: #f1f3f5;
+  color: var(--muted);
 }
 
 .warning {
