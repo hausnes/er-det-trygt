@@ -162,6 +162,15 @@ button:disabled {
   border-radius: 3px;
 }
 
+.warning {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff4e5;
+  color: #8a4b00;
+  font-size: 0.9rem;
+}
+
 .note,
 .disclaimer {
   font-size: 0.8rem;

@@ -15,6 +15,7 @@ export interface RouteResponse {
     length_by_slope_class_m: Record<SlopeClass, number>;
     cell_size_m: number;
   };
+  warnings: string[];
 }
 
 export async function fetchRoute(start: LatLon, end: LatLon): Promise<RouteResponse> {

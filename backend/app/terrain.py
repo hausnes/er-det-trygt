@@ -35,36 +35,56 @@ class Dem:
         return x, y
 
 
+@dataclass
+class Grid:
+    """Eit rutenett med kvadratiske celler i EPSG:25833, som alle datalag blir henta i."""
+
+    left: float
+    top: float
+    cell_size: float
+    rows: int
+    cols: int
+
+    @classmethod
+    def covering(cls, minx: float, miny: float, maxx: float, maxy: float, cell_size: float) -> "Grid":
+        cols = max(1, round((maxx - minx) / cell_size))
+        rows = max(1, round((maxy - miny) / cell_size))
+        return cls(left=minx, top=miny + rows * cell_size, cell_size=cell_size, rows=rows, cols=cols)
+
+    @property
+    def bbox(self) -> str:
+        bottom = self.top - self.rows * self.cell_size
+        right = self.left + self.cols * self.cell_size
+        return f"{self.left},{bottom},{right},{self.top}"
+
+
 class TerrainError(Exception):
     pass
 
 
-async def fetch_dem(minx: float, miny: float, maxx: float, maxy: float, cell_size: float) -> Dem:
-    """Hentar DTM for eit område (koordinatar i EPSG:25833) med gitt celleoppløysing."""
-    width = max(1, round((maxx - minx) / cell_size))
-    height = max(1, round((maxy - miny) / cell_size))
-    # Juster boksen slik at cellene blir nøyaktig kvadratiske
-    maxx = minx + width * cell_size
-    maxy = miny + height * cell_size
-
+async def fetch_dem(grid: Grid) -> Dem:
+    """Hentar DTM for rutenettet."""
     params = {
         "service": "WCS",
         "request": "GetCoverage",
         "version": "1.0.0",
         "coverage": COVERAGE,
         "crs": CRS,
-        "bbox": f"{minx},{miny},{maxx},{maxy}",
-        "width": width,
-        "height": height,
+        "bbox": grid.bbox,
+        "width": grid.cols,
+        "height": grid.rows,
         "format": "GeoTIFF",
         "interpolation": "bilinear",
     }
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.get(WCS_URL, params=params)
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(WCS_URL, params=params)
+    except httpx.HTTPError as e:
+        raise TerrainError(f"Fekk ikkje kontakt med Kartverket (høgdedata): {e}") from e
 
     if resp.status_code != 200 or "tiff" not in resp.headers.get("content-type", ""):
         raise TerrainError(f"Klarte ikkje hente høgdedata frå Kartverket: {resp.text[:300]}")
 
     elevation = tifffile.imread(io.BytesIO(resp.content)).astype(np.float32)
     elevation[elevation < SEA_LEVEL_THRESHOLD] = np.nan
-    return Dem(elevation=elevation, left=minx, top=maxy, cell_size=cell_size)
+    return Dem(elevation=elevation, left=grid.left, top=grid.top, cell_size=grid.cell_size)

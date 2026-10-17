@@ -1,3 +1,4 @@
+import asyncio
 import math
 
 from fastapi import FastAPI, HTTPException
@@ -5,7 +6,8 @@ from pydantic import BaseModel, Field
 from pyproj import Transformer
 
 from .routing import NoRouteError, find_route, slope_class
-from .terrain import CRS, TerrainError, fetch_dem
+from .terrain import CRS, Grid, TerrainError, fetch_dem
+from .water import WaterError, fetch_water_mask
 
 # Lengste tillatne avstand i luftline mellom start og mål.
 MAX_DISTANCE_M = 15_000
@@ -50,18 +52,32 @@ async def route(req: RouteRequest):
     miny, maxy = min(sy, ey) - margin, max(sy, ey) + margin
     cell_size = max(MIN_CELL_SIZE_M, math.ceil(max(maxx - minx, maxy - miny) / MAX_GRID_CELLS))
 
+    grid = Grid.covering(minx, miny, maxx, maxy, cell_size)
+    warnings: list[str] = []
     try:
-        dem = await fetch_dem(minx, miny, maxx, maxy, cell_size)
-        result = find_route(dem, (sx, sy), (ex, ey))
+        dem, water = await asyncio.gather(fetch_dem(grid), _fetch_water_or_none(grid, warnings))
     except TerrainError as e:
         raise HTTPException(502, str(e))
+
+    try:
+        result = find_route(dem, (sx, sy), (ex, ey), water)
     except NoRouteError as e:
         raise HTTPException(422, str(e))
 
     return {
         "segments": to_segments(result["points"]),
         "summary": {**result["summary"], "cell_size_m": cell_size},
+        "warnings": warnings,
     }
+
+
+async def _fetch_water_or_none(grid: Grid, warnings: list[str]):
+    """Utan vassdata kan vi framleis rekne ut ei rute, men brukaren må få vite det."""
+    try:
+        return await fetch_water_mask(grid)
+    except WaterError:
+        warnings.append("Fekk ikkje henta vassdata, så ruta kan gå gjennom vatn.")
+        return None
 
 
 def to_segments(points: list[tuple[float, float, float, float]]) -> dict:

@@ -195,7 +195,9 @@ function showSummary(route: RouteResponse) {
         `<li><span class="swatch" style="background:${SLOPE_COLORS[c]}"></span>${SLOPE_LABELS[c]}<span class="num">${formatDistance(s.length_by_slope_class_m[c])}</span></li>`,
     )
     .join("");
+  const warnings = route.warnings.map((w) => `<p class="warning">⚠️ ${w}</p>`).join("");
   summaryEl.innerHTML = `
+    ${warnings}
     <dl>
       <div><dt>Lengd</dt><dd>${formatDistance(s.length_m)}</dd></div>
       <div><dt>Opp</dt><dd>${s.ascent_m} m</dd></div>

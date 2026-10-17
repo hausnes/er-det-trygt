@@ -12,9 +12,10 @@ Tjenesten treng GPS-tilgang frå mobilen din, og deretter markerer du kvar du sk
 1. Du vel startpunkt (trykk på kartet, eller bruk GPS-posisjonen) og målpunkt. Begge kan flyttast ved å dra dei.
 2. Backend-en hentar terrengmodell (DTM) frå [Kartverket sine høgdedata](https://hoydedata.no) for området.
 3. Hellinga blir rekna ut for kvar celle. Terreng over 45° (og cellene rett ved sida) blir rekna som ufarbart, og bratt terreng kostar meir enn slakt.
-4. Ruta med lågast samla kostnad blir funnen og vist på kartet, farga etter kor bratt det er.
+4. Innsjøar, tjørner og breie elvar frå Kartverket sitt N50-kart blir rekna som ufarbare, slik at ruta går rundt dei. Ruta kan likevel krysse bekkar og smale elvar, sidan dei berre er teikna som liner i N50.
+5. Ruta med lågast samla kostnad blir funnen og vist på kartet, farga etter kor bratt det er.
 
-Avgrensingar: Høgdemodellen kjenner ikkje til snø, is, vatn eller lausmassar, og vatn kan sjå ut som flatt, lett terreng. Maks avstand mellom punkta er 15 km. Lange ruter blir rekna ut med grovare rutenett (opptil ~15 m), og då kan små stup forsvinne.
+Avgrensingar: Høgdemodellen kjenner ikkje til snø, is, bre eller lausmassar. Vatn blir alltid unngått, også om vinteren når det kan vere islagt. Maks avstand mellom punkta er 15 km. Lange ruter blir rekna ut med grovare rutenett (opptil ~15 m), og då kan små stup forsvinne.
 
 ## Utvikling
 
@@ -40,4 +41,4 @@ GPS-posisjon i nettlesaren krev HTTPS (eller `localhost`). For å teste på mobi
 
 ## Datakjelder
 
-- Høgdedata og topografisk kart: © Kartverket (CC BY 4.0)
+- Høgdedata, vassdata (N50) og topografisk kart: © Kartverket (CC BY 4.0)

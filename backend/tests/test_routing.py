@@ -48,3 +48,23 @@ def test_start_on_steep_cell_snaps_to_nearby_passable_cell():
     dem = make_dem(elevation)
     result = find_route(dem, xy(dem, 25, 5), xy(dem, 25, 45))
     assert result["points"]
+
+
+def test_route_goes_around_lake():
+    dem = make_dem(np.full((60, 60), 100.0))
+    water = np.zeros((60, 60), dtype=bool)
+    water[10:50, 20:40] = True  # flatt vatn rett mellom start og mål
+    result = find_route(dem, xy(dem, 30, 5), xy(dem, 30, 55), water)
+
+    cells = [dem.to_cell(x, y) for x, y, *_ in result["points"]]
+    assert not any(water[cell] for cell in cells)
+    # Omvegen rundt vatnet er lengre enn luftlina på 250 m
+    assert result["summary"]["length_m"] > 300
+
+
+def test_end_point_far_out_in_lake_gives_error():
+    dem = make_dem(np.full((60, 60), 100.0))
+    water = np.zeros((60, 60), dtype=bool)
+    water[10:50, 20:50] = True
+    with pytest.raises(NoRouteError, match="vatn"):
+        find_route(dem, xy(dem, 30, 5), xy(dem, 30, 35), water)

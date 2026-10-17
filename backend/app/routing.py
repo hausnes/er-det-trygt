@@ -35,12 +35,12 @@ def slope_degrees(dem: Dem) -> np.ndarray:
     return slope
 
 
-def cost_surface(slope: np.ndarray) -> np.ndarray:
+def cost_surface(slope: np.ndarray, water: np.ndarray | None = None) -> np.ndarray:
     """Kostnad per meter for å gå gjennom kvar celle.
 
     Kostnaden veks kraftig med hellinga (1 på flatmark, ~6 ved 30°, ~17 ved 40°).
     Celler brattare enn MAX_SLOPE_DEG, og nabocellene deira, er ufarbare – det
-    held ruta unna stupkantar.
+    held ruta unna stupkantar. Vatn er ufarbart, men ein kan gå langs strandkanten.
     """
     surface = 1.0 / np.cos(np.radians(np.nan_to_num(slope)))
     penalty = 1.0 + (np.nan_to_num(slope) / 20.0) ** 4
@@ -48,6 +48,8 @@ def cost_surface(slope: np.ndarray) -> np.ndarray:
 
     impassable = np.isnan(slope) | (slope > MAX_SLOPE_DEG)
     impassable = ndimage.binary_dilation(impassable, iterations=1)
+    if water is not None:
+        impassable |= water
     cost[impassable] = np.inf
     return cost
 
@@ -59,10 +61,18 @@ def slope_class(deg: float) -> str:
     return SLOPE_CLASSES[-1][1]
 
 
-def find_route(dem: Dem, start_xy: tuple[float, float], end_xy: tuple[float, float]) -> dict:
-    """Returnerer ruta som liste med punkt (x, y, høgd, helling) og ei oppsummering."""
+def find_route(
+    dem: Dem,
+    start_xy: tuple[float, float],
+    end_xy: tuple[float, float],
+    water: np.ndarray | None = None,
+) -> dict:
+    """Returnerer ruta som liste med punkt (x, y, høgd, helling) og ei oppsummering.
+
+    `water` er ei boolsk maske i same rutenett som `dem`, der True er vatn.
+    """
     slope = slope_degrees(dem)
-    cost = cost_surface(slope)
+    cost = cost_surface(slope, water)
 
     start = _nearest_passable(cost, dem.to_cell(*start_xy), dem.cell_size, "Startpunktet")
     end = _nearest_passable(cost, dem.to_cell(*end_xy), dem.cell_size, "Sluttpunktet")
@@ -71,7 +81,7 @@ def find_route(dem: Dem, start_xy: tuple[float, float], end_xy: tuple[float, flo
     cumulative, _ = mcp.find_costs([start], [end])
     if not np.isfinite(cumulative[end]):
         raise NoRouteError(
-            f"Fann inga rute utan terreng brattare enn {MAX_SLOPE_DEG:.0f}° mellom punkta."
+            f"Fann inga rute mellom punkta utan å krysse vatn eller terreng brattare enn {MAX_SLOPE_DEG:.0f}°."
         )
     cells = mcp.traceback(end)
 
@@ -94,7 +104,7 @@ def _nearest_passable(cost: np.ndarray, cell: tuple[int, int], cell_size: float,
     rows, cols = np.nonzero(np.isfinite(window))
     if len(rows) == 0:
         raise NoRouteError(
-            f"{name} ligg i terreng som er for bratt (over {MAX_SLOPE_DEG:.0f}°) "
+            f"{name} ligg i vatn, i terreng som er for bratt (over {MAX_SLOPE_DEG:.0f}°) "
             "eller utan høgdedata. Prøv å flytte det litt."
         )
     i = np.argmin((rows + r0 - row) ** 2 + (cols + c0 - col) ** 2)
