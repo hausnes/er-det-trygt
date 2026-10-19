@@ -144,20 +144,75 @@ map.on("click", (e) => {
 pickStart.addEventListener("click", () => setPicking(picking === "start" ? null : "start"));
 pickEnd.addEventListener("click", () => setPicking(picking === "end" ? null : "end"));
 
+// Mobilen gjev ofte først ein grov posisjon frå mobilmaster, og treng gjerne 10–30 s
+// for å finne satellittane. Vi ventar difor på ein god posisjon i staden for å ta den første.
+const GPS_GOOD_ACCURACY_M = 25;
+const GPS_MAX_ACCURACY_M = 200;
+const GPS_WAIT_MS = 30_000;
+const USE_GPS_LABEL = useGps.textContent;
+let cancelGpsWait: (() => void) | null = null;
+
 useGps.addEventListener("click", () => {
+  if (cancelGpsWait) return cancelGpsWait(); // andre trykk avbryt ventinga
   if (!("geolocation" in navigator)) return setStatus("Nettlesaren din støttar ikkje GPS-posisjon.", true);
-  setStatus("Hentar posisjonen din …");
-  navigator.geolocation.getCurrentPosition(
+
+  let best: GeolocationPosition | null = null;
+  const done = () => {
+    navigator.geolocation.clearWatch(watchId);
+    clearTimeout(timer);
+    cancelGpsWait = null;
+    useGps.textContent = USE_GPS_LABEL;
+  };
+  const finish = () => {
+    done();
+    if (!best) return setStatus("Fekk ingen GPS-posisjon. Gå gjerne ut i ope lende og prøv igjen.", true);
+    const accuracy = Math.round(best.coords.accuracy);
+    if (accuracy > GPS_MAX_ACCURACY_M) {
+      return setStatus(
+        `GPS-posisjonen er for unøyaktig (±${formatDistance(accuracy)}) til å brukast som startpunkt. ` +
+          `${accuracyHint(accuracy)}Du kan i staden trykke på kartet der du står.`,
+        true,
+      );
+    }
+    const lngLat: [number, number] = [best.coords.longitude, best.coords.latitude];
+    setPoint("start", lngLat);
+    map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 15) });
+    if (accuracy > GPS_GOOD_ACCURACY_M) {
+      setStatus(`Startpunktet er sett, men posisjonen er berre nøyaktig til ±${accuracy} m. Sjekk at det stemmer på kartet.`, true);
+    }
+  };
+
+  const watchId = navigator.geolocation.watchPosition(
     (pos) => {
-      const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
-      setPoint("start", lngLat);
-      map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 14) });
-      if (pos.coords.accuracy > 50) setStatus(`Posisjonen er unøyaktig (±${Math.round(pos.coords.accuracy)} m).`, true);
+      if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+      if (best.coords.accuracy <= GPS_GOOD_ACCURACY_M) return finish();
+      setStatus(`Ventar på betre GPS-signal … no ±${formatDistance(Math.round(best.coords.accuracy))}`);
     },
-    (err) => setStatus(`Fekk ikkje tak i posisjonen: ${err.message}`, true),
-    { enableHighAccuracy: true, timeout: 15000 },
+    (err) => {
+      // Mobilen kan melde forbigåande feil når han byter mellom mobilmaster og satellittar,
+      // så vi held fram med å vente. Berre manglande løyve er endeleg.
+      if (err.code !== err.PERMISSION_DENIED) return;
+      done();
+      setStatus("Nettlesaren har ikkje lov til å bruke posisjonen din. Sjekk løyva for nettstaden og appen.", true);
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: GPS_WAIT_MS },
   );
+  const timer = setTimeout(finish, GPS_WAIT_MS);
+  cancelGpsWait = () => {
+    done();
+    setStatus("");
+  };
+  useGps.textContent = "✕ Avbryt GPS-søk";
+  setStatus("Ventar på GPS-signal …");
 });
+
+/** Feil på kilometer-nivå tyder på at appen berre har fått omtrentleg posisjon av telefonen. */
+function accuracyHint(accuracy: number) {
+  return accuracy >= 1000
+    ? "Truleg har nettlesaren berre løyve til omtrentleg posisjon. På Android: Innstillingar → Appar → " +
+        "nettlesaren → Løyve → Posisjon → slå på «Bruk nøyaktig posisjon». "
+    : "";
+}
 
 resetBtn.addEventListener("click", () => {
   markers.start?.remove();
@@ -299,7 +354,7 @@ function updateFollow(coords: GeolocationCoordinates) {
     // Ikkje stadfest at ein er på ruta når GPS-feilen er større enn avvika vi vil oppdage
     showFollowStatus(
       `<strong>❔ Usikker posisjon</strong>
-       <small>GPS-signalet er for unøyaktig (±${Math.round(accuracy)} m) til å stadfeste at du er på ruta. ${remainingText}</small>`,
+       <small>GPS-signalet er for unøyaktig (±${formatDistance(Math.round(accuracy))}) til å stadfeste at du er på ruta. ${accuracyHint(accuracy)}${remainingText}</small>`,
       "waiting",
     );
   } else if (remaining < ARRIVED_M) {
