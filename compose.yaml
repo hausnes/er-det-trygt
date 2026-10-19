@@ -2,6 +2,8 @@
 services:
   er-det-trygt:
     image: ghcr.io/hausnes/er-det-trygt:latest
+    # Hent alltid nyaste versjon ved start, så «Stop → Build» i Container Manager er nok for å oppdatere
+    pull_policy: always
     container_name: er-det-trygt
     restart: unless-stopped
     ports:
